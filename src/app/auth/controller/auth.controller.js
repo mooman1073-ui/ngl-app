@@ -55,3 +55,27 @@ export async function resendOtp(req, res, next) {
     next(error);
   }
 }
+
+export async function sendResetOtp(req, res, next) {
+  try {
+    await authService.sendResetOtp(req.body.email);
+
+    res.status(200).json({
+      message: "Password reset OTP sent successfully"
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetPassword(req, res, next) {
+  try {
+    await authService.resetPassword(req.body);
+
+    res.status(200).json({
+      message: "Password reset successfully"
+    });
+  } catch (error) {
+    next(error);
+  }
+}

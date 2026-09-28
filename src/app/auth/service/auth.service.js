@@ -7,21 +7,17 @@ import {
   deleteOtp,
   findOtp,
   findUserByEmail,
+  updateUserPassword,
   verifyUser
 } from "../repository/auth.repository.js";
 import { sendEmail } from "../../../common/email/send-email.js";
-
-function makeError(message, statusCode) {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
-}
+import { AppError } from "../../../common/error/app-error.js";
 
 function generateOtp() {
   return crypto.randomInt(100000, 1000000).toString();
 }
 
-async function createAndSendOtp(email) {
+async function createAndSendOtp(email, subject) {
   await deleteOtp(email);
 
   const value = generateOtp();
@@ -34,8 +30,8 @@ async function createAndSendOtp(email) {
 
   await sendEmail({
     to: email,
-    subject: "Verify your account",
-    html: `<h2>Your verification code is ${value}</h2>`
+    subject,
+    html: `<h2>Your code is ${value}</h2>`
   });
 }
 
@@ -44,7 +40,7 @@ export async function register(userData) {
   const existingUser = await findUserByEmail(email);
 
   if (existingUser) {
-    throw makeError("User already exists", 409);
+    throw new AppError("User already exists", 409);
   }
 
   const hashedPassword = await bcrypt.hash(userData.password, 10);
@@ -55,7 +51,7 @@ export async function register(userData) {
     password: hashedPassword
   });
 
-  await createAndSendOtp(email);
+  await createAndSendOtp(email, "Verify your account");
 
   return {
     id: user._id,
@@ -71,17 +67,17 @@ export async function verifyEmail({ email, otp }) {
   const otpDocument = await findOtp(email, otp);
 
   if (!otpDocument || otpDocument.expiresAt < new Date()) {
-    throw makeError("Invalid or expired OTP", 400);
+    throw new AppError("Invalid or expired OTP", 400);
   }
 
   const user = await findUserByEmail(email);
 
   if (!user) {
-    throw makeError("User not found", 404);
+    throw new AppError("User not found", 404);
   }
 
   if (user.isVerified) {
-    throw makeError("Account is already verified", 400);
+    throw new AppError("Account is already verified", 400);
   }
 
   await verifyUser(email);
@@ -94,21 +90,21 @@ export async function login({ email, password }) {
   const user = await findUserByEmail(email);
 
   if (!user) {
-    throw makeError("Invalid email or password", 401);
+    throw new AppError("Invalid email or password", 401);
   }
 
   const passwordMatches = await bcrypt.compare(password, user.password);
 
   if (!passwordMatches) {
-    throw makeError("Invalid email or password", 401);
+    throw new AppError("Invalid email or password", 401);
   }
 
   if (!user.isVerified) {
-    throw makeError("Please verify your email first", 403);
+    throw new AppError("Please verify your email first", 403);
   }
 
   if (user.isDeleted) {
-    throw makeError("Account is not available", 403);
+    throw new AppError("Account is not available", 403);
   }
 
   return jwt.sign(
@@ -124,12 +120,53 @@ export async function resendOtp(email) {
   const user = await findUserByEmail(email);
 
   if (!user) {
-    throw makeError("User not found", 404);
+    throw new AppError("User not found", 404);
   }
 
   if (user.isVerified) {
-    throw makeError("Account is already verified", 400);
+    throw new AppError("Account is already verified", 400);
   }
 
-  await createAndSendOtp(email);
+  await createAndSendOtp(email, "Verify your account");
+}
+
+export async function sendResetOtp(email) {
+  email = email.trim().toLowerCase();
+
+  const user = await findUserByEmail(email);
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (!user.isVerified) {
+    throw new AppError("Please verify your email first", 403);
+  }
+
+  await createAndSendOtp(email, "Reset your password");
+}
+
+export async function resetPassword({ email, otp, newPassword }) {
+  email = email.trim().toLowerCase();
+
+  const user = await findUserByEmail(email);
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (!user.isVerified) {
+    throw new AppError("Please verify your email first", 403);
+  }
+
+  const otpDocument = await findOtp(email, otp);
+
+  if (!otpDocument || otpDocument.expiresAt < new Date()) {
+    throw new AppError("Invalid or expired OTP", 400);
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  await updateUserPassword(email, hashedPassword);
+  await deleteOtp(email);
 }

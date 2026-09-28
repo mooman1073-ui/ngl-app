@@ -17,6 +17,14 @@ export function verifyUser(email) {
   );
 }
 
+export function updateUserPassword(email, password) {
+  return User.findOneAndUpdate(
+    { email },
+    { password },
+    { new: true }
+  );
+}
+
 export function findOtp(email, value) {
   return OTP.findOne({ email, value });
 }
