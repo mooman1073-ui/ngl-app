@@ -18,12 +18,19 @@ const userSchema = new Schema(
     },
     password: {
       type: String,
-      required: true
+      required: function () {
+        return this.provider === "local";
+      }
     },
     provider: {
       type: String,
       enum: ["local", "Google", "Facebook"],
       default: "local"
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true
     },
     isDeleted: {
       type: Boolean,

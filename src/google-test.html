@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NGL Google login</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <h1>NGL Google login</h1>
+  <p>Sign in with Google to test your account.</p>
+  <div id="google-button"></div>
+  <button id="copy-token" disabled>Copy token for Postman</button>
+  <p id="result">Loading Google sign-in...</p>
+  <script>
+    const result = document.getElementById("result");
+    const copyButton = document.getElementById("copy-token");
+    let googleIdToken;
+
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(googleIdToken);
+        result.textContent = "Token copied. Use it privately in Postman.";
+      } catch {
+        result.textContent = "Could not copy the token. Check clipboard permissions.";
+      }
+    });
+
+    async function handleGoogleLogin(response) {
+      googleIdToken = response.credential;
+      copyButton.disabled = false;
+      result.textContent = "Checking your account...";
+
+      try {
+        const loginResponse = await fetch("/api/v1/auth/google-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken: response.credential })
+        });
+
+        const data = await loginResponse.json();
+        result.textContent = data.message;
+      } catch {
+        result.textContent = "Could not connect to the server. Please try again.";
+      }
+    }
+
+    window.addEventListener("load", async () => {
+      try {
+        const response = await fetch("/google-client-id");
+        const data = await response.json();
+
+        if (!data.clientId || !window.google) {
+          throw new Error("Google sign-in is unavailable");
+        }
+
+        google.accounts.id.initialize({
+          client_id: data.clientId,
+          callback: handleGoogleLogin
+        });
+
+        google.accounts.id.renderButton(
+          document.getElementById("google-button"),
+          { theme: "outline", size: "large" }
+        );
+
+        result.textContent = "Ready to sign in.";
+      } catch {
+        result.textContent = "Google sign-in could not load. Check your connection and configuration.";
+      }
+    });
+  </script>
+</body>
+</html>

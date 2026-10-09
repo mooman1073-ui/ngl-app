@@ -44,6 +44,25 @@ export async function login(req, res, next) {
   }
 }
 
+export async function googleLogin(req, res, next) {
+  try {
+    const token = await authService.googleLogin(req.body);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000
+    });
+
+    res.status(200).json({
+      message: "Google login successful"
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function resendOtp(req, res, next) {
   try {
     await authService.resendOtp(req.body.email);

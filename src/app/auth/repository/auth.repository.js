@@ -5,6 +5,10 @@ export function findUserByEmail(email) {
   return User.findOne({ email });
 }
 
+export function findUserByGoogleId(googleId) {
+  return User.findOne({ googleId, provider: "Google" });
+}
+
 export function createUser(userData) {
   return User.create(userData);
 }

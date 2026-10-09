@@ -18,6 +18,10 @@ export const loginDTO = z.object({
   password: z.string().trim().min(8).max(16)
 });
 
+export const googleLoginDTO = z.object({
+  idToken: z.string().trim().min(1)
+});
+
 export const resendOtpDTO = z.object({
   email: z.email().trim().toLowerCase()
 });
